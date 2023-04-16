@@ -13,6 +13,8 @@ using Newtonsoft.Json.Linq;
 using System.Linq;
 using Discord.Rest;
 using System.Text.RegularExpressions;
+using System.Windows.Forms;
+using System.Runtime.Remoting.Contexts;
 
 namespace Discord翻訳bot_Deepl_
 {
@@ -36,7 +38,7 @@ namespace Discord翻訳bot_Deepl_
             _client.Log += LogAsync;
             _client.Ready += onReady;
             _client.MessageReceived += onMessage;
-            //_client.ReactionAdded += ReactionAsync;
+            _client.ReactionAdded += ReactionAsync;
         }
 
         public async Task MainAsync()
@@ -85,7 +87,7 @@ namespace Discord翻訳bot_Deepl_
                     return;
             }
 
-            string usermessage = "";
+            string translatemessage = "";
 
             using (var httpClient = new HttpClient())
             {
@@ -93,7 +95,7 @@ namespace Discord翻訳bot_Deepl_
                 {
                     var contentList = new List<string>
                     {
-                        "auth_key=MyAPIKey",
+                        "auth_key=MyAuthKey",
                         "text=" + message.Content,
                         targetlang
                     };
@@ -105,13 +107,19 @@ namespace Discord翻訳bot_Deepl_
                     
                     var resBodyStr = response.Content.ReadAsStringAsync().Result;
                     JObject deserial = (JObject)JsonConvert.DeserializeObject(resBodyStr);
-                    usermessage = deserial["translations"][0]["text"].ToString();
+                    translatemessage = deserial["translations"][0]["text"].ToString();
                 }
             }
 
-            await message.Channel.SendMessageAsync(usermessage);
+            if (targetlang == "target_lang=EN")
+            {
+                translatemessage = translatemessage.Replace(". ", ".\n");
+                translatemessage = translatemessage.Replace("! ", "!\n");
+                translatemessage = translatemessage.Replace("? ", "!\n");
+            }
+            await message.Channel.SendMessageAsync(translatemessage);
         }
-        /*
+        
         public async Task ReactionAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction)
         {
             if (_client.GetUser(reaction.UserId).IsBot)
@@ -119,19 +127,18 @@ namespace Discord翻訳bot_Deepl_
 
             if (reaction.Emote.Name == "🇯🇵")
             {
-                string usermessage = "";
+                string translatemessage = "";
 
                 using (var httpClient = new HttpClient())
                 {
                     using (var request = new HttpRequestMessage(new HttpMethod("POST"), "https://api-free.deepl.com/v2/translate"))
                     {
-                        var contentList = new List<string>();
-                        contentList.Add("auth_key=MyAPIKey");
-                        contentList.Add(channel.GetMessageAsync(Bot.MessageStatisticsID));
-                        var messages = await Context.Channel
-                   .GetMessagesAsync(Context.Message, Direction.Before, 1)
-                   .FlattenAsync();
-                        contentList.Add("target_lang=JA");
+                        var contentList = new List<string>
+                        {
+                            "auth_key=MyAuthKey",
+                            "text=" + await message.GetOrDownloadAsync(),
+                            "target_lang=JA"
+                        };
 
                         request.Content = new StringContent(string.Join("&", contentList));
                         request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/x-www-form-urlencoded");
@@ -140,27 +147,28 @@ namespace Discord翻訳bot_Deepl_
 
                         var resBodyStr = response.Content.ReadAsStringAsync().Result;
                         JObject deserial = (JObject)JsonConvert.DeserializeObject(resBodyStr);
-                        usermessage = deserial["translations"][0]["text"].ToString();
+                        translatemessage = deserial["translations"][0]["text"].ToString();
                     }
                 }
 
-                ulong channelId = channel.Id;
-                var toOtherChannel = _client.GetChannel(channelId) as IMessageChannel;
-                await toOtherChannel.SendMessageAsync(usermessage);
+                var toOtherChannel = _client.GetChannel(channel.Id) as IMessageChannel;
+                await toOtherChannel.SendMessageAsync(translatemessage);
             }
 
             if (reaction.Emote.Name == "🇺🇸")
             {
-                string usermessage = "";
+                string translatemessage = "";
 
                 using (var httpClient = new HttpClient())
                 {
                     using (var request = new HttpRequestMessage(new HttpMethod("POST"), "https://api-free.deepl.com/v2/translate"))
                     {
-                        var contentList = new List<string>();
-                        contentList.Add("auth_key=MyAPIKey");
-                        contentList.Add(message.ToString());
-                        contentList.Add("target_lang=EN");
+                        var contentList = new List<string>
+                        {
+                            "auth_key=MyAuthKey",
+                            "text=" + await message.GetOrDownloadAsync(),
+                            "target_lang=EN"
+                        };
 
                         request.Content = new StringContent(string.Join("&", contentList));
                         request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/x-www-form-urlencoded");
@@ -169,18 +177,18 @@ namespace Discord翻訳bot_Deepl_
 
                         var resBodyStr = response.Content.ReadAsStringAsync().Result;
                         JObject deserial = (JObject)JsonConvert.DeserializeObject(resBodyStr);
-                        usermessage = deserial["translations"][0]["text"].ToString();
+                        translatemessage = deserial["translations"][0]["text"].ToString();
                     }
                 }
 
-                ulong channelId = channel.Id;
-                var toOtherChannel = _client.GetChannel(channelId) as IMessageChannel;
-                var embed = new EmbedBuilder();
-                embed.WithColor(0x00B8FF);
-                await toOtherChannel.SendMessageAsync(usermessage);
+                translatemessage = translatemessage.Replace(". ", ".\n");
+                translatemessage = translatemessage.Replace("! ", "!\n");
+                translatemessage = translatemessage.Replace("? ", "!\n");
+                var toOtherChannel = _client.GetChannel(channel.Id) as IMessageChannel;
+                await toOtherChannel.SendMessageAsync(translatemessage);
             }
         }
-        */
+        
 
         private bool IsJapanese(string text)
         {
